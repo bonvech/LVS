@@ -13,3 +13,4 @@ COM="COM1"
 #
 MINID=943370
 #
+#develop = True

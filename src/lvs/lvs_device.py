@@ -6,6 +6,9 @@ from datetime import datetime
 #import pandas as pd
 import os
 import serial
+import telebot
+import config
+
 
 
 class LVS_device:
@@ -65,10 +68,13 @@ class LVS_device:
             return -1
 
         self.portName = config.COM
-        self.MINID = int(config.MINID)
-        #self.MAXID = self.MINID
         self.pathfile = config.path
 
+        try: 
+            self.MINID = int(config.MINID)
+        except:
+            pass
+        #self.MAXID = self.MINID
         try:
             self.develop = config.develop
         except:
@@ -80,42 +86,32 @@ class LVS_device:
             print("--------------------------------------------")
 
         self.prepare_dirs()
-        self.prepare_filenames()
+
 
 
     ## ----------------------------------------------------------------
-    ##  make filenames to save data
+    ##  make dirs and filenames to save data
     ## ----------------------------------------------------------------
-    def prepare_filenames(self):
+    def prepare_dirs(self):
         ## get current datatime
         tt = datetime.now()
         timestamp = str(tt.year) + '_' + str(tt.month)
 
-        ## make names
-        self.datafilename = self.pathfile + self.sep + timestamp + "_data.tsv"
-        self.logfilename  = self.pathfile + self.sep + timestamp + "_lvs_log.txt" 
-        print(self.datafilename)
-        print(self.logfilename)
-
-
-
-    ## ----------------------------------------------------------------
-    ##  make dirs to save data
-    ## ----------------------------------------------------------------
-    def prepare_dirs(self):
-        ## \todo ПОПРАВИТЬ в конфигурацилонном файле СЛЕШИ В ИМЕНИ ДИРЕКТОРИИ  !!!   для ВИНДА
-        if 'ix' in os.name:
-            sep = '/'  ## -- separator for LINIX
-        else:
-            sep = '\\' ## -- separator for Windows
-
         path = self.pathfile
         if not os.path.exists(path):   os.system("mkdir " + path)
-        path = self.pathfile + sep + 'Data'
-        if not os.path.exists(path):   os.system("mkdir " + path)
-        path = self.pathfile + sep + 'Logs'
-        if not os.path.exists(path):   os.system("mkdir " + path)
 
+        ## for data files
+        path = self.pathfile + self.sep + 'Data'
+        if not os.path.exists(path):   os.system("mkdir " + path)
+        self.datafilename = path + self.sep + timestamp + "_data.tsv"
+
+        ## for log files
+        path = self.pathfile + self.sep + 'Logs'
+        if not os.path.exists(path):   os.system("mkdir " + path)
+        self.logfilename  = path + self.sep + timestamp + "_lvs_log.txt" 
+
+        print(self.datafilename)
+        print(self.logfilename)
 
 
     ## ----------------------------------------------------------------
@@ -146,13 +142,17 @@ class LVS_device:
     def print_params(self):
         print("Directory for DATA: ", self.pathfile)
         print("portName = ", self.portName)
-        print("MINID = ",    self.MINID)
+        #print("MINID = ",    self.MINID)
 
 
     ## ----------------------------------------------------------------
     ## Open COM port
     ## ----------------------------------------------------------------
     def connect(self):
+        print(f"Connection to COM port {self.portName} ...", end='')
+        if self.develop:
+            print("   simulation")
+            return 2
         self.ser = serial.Serial(
                 port =     self.portName,
                 baudrate = self.BPS,       # 115200,
@@ -162,9 +162,9 @@ class LVS_device:
                 timeout  = self.timeout
                 )
         if (self.ser.isOpen()):
-            print("COM port open success\n")
+            print("\nCOM port open success\n")
             return 0
-        print("CON port open failed\n")
+        print("\n\n Error! COM port open failed\n")
         return -1
 
 
@@ -172,67 +172,109 @@ class LVS_device:
     ## Close COM port
     ## ----------------------------------------------------------------
     def unconnect(self):
+        print(f"Close COM port {self.portName} ... ", end='')
+        if self.develop:
+            print("...   simulation")
+            return 2
         self.ser.close() # Закройте порт
 
 
     ## ----------------------------------------------------------------
     ## Send request to COM port
     ## ----------------------------------------------------------------
-    def request(self, command, start=0, stop=0):
-        f = open(self.logfilename, 'a') 
+    def request(self):
+        flog = open(self.logfilename, 'a')
 
-        command = chr(2) + 'DA' + chr(3)
+        ## !!!??? check: str(command) or command
+        command = str(chr(2) + 'DA' + chr(3))
         #print(command)
-        f.write(str(command))
+        flog.write(command)
 
-        try:
-            self.ser.write(command.encode())
-        except:
-            text = '\nrequest(): Error in writing to COM port!\n Check: COM port is open?'
+        ## in test mode
+        if self.develop:
+            print("simulate command writing to port")
+            self.buff = "\\x02MD12 201 +0000+00 00 00 977 000000 202 +0000+00 00 00 977 000000 203 +2795+01 00 00 977 000000 204 +2576+01 00 00 977 000000 205 +2640+01 00 00 977 000000 206 +2513+01 00 00 977 000000 207 +4037+01 00 00 977 000000 208 +9898+02 00 00 977 000000 209 +1549-01 00 00 977 000000 210 +2116+02 00 00 977 000000 211 +2108+02 00 00 977 000000 212 +0000+00 00 00 977 000000 \\x0320"
+        ## in work mode
+        else:
+            try:
+                self.ser.write(command.encode())
+            except:
+                text = '\nrequest(): Error in writing to COM port!\n Check: COM port is open?'
+                print(text)
+                flog.write(text + '\n')
+                return -1
+
+            time.sleep(self.com_wait)
+
+            ## read answer from buffer
+            self.buff = ""
+            while self.ser.in_waiting:
+                line = self.ser.read() #.decode()
+                if (line):
+                    self.buff += line
+                    #print("{{"+line+"}}")
+                    #flog.write("{{"+str(line)+"}}\n")
+                    if line == b'\x03':
+                        ## read 2 bytes to finish detector data line
+                        for _ in range(2):
+                            line = self.ser.read()
+                            if line: 
+                                self.buff += line
+
+                        ## print data string to data file
+                        print("One line received from device")
+                        flog.write("{{" + str(self.buff) + "}}\n")
+                        ## print to data file
+                        fdata = open(self.datafilename, 'a')
+                        ## !!!??? check writing to file
+                        fdata.write(self.buff.decode() + '\n')
+                        fdata.write(str(self.buff) + '\n')
+                        fdata.close()
+
+                        ## analyze dataline
+                        self.parse_dataline(self.buff.decode())
+
+                        ## refresh buffer 
+                        self.buff = ''
+            self.buff = self.buff.decode()
+
+        if len(self.buff):
+            ## print to log file
+            flog.write("{{" + str(self.buff) + "}}\n")
+            ## print to data file
+            fdata = open(self.datafilename, 'a')
+            fdata.write(self.buff + '\n')
+            fdata.write(str(self.buff) + '\n')
+            fdata.close()
+            ## analyze dataline
+            self.parse_dataline(self.buff)
+
+        flog.write("\n")
+        flog.close()
+
+
+
+    ## ----------------------------------------------------------------
+    ## Parse one data line
+    ## ----------------------------------------------------------------
+    def parse_dataline(self, line):
+        sep = ';' if ';' in line else ' '
+        line = line.split(sep)
+        print(line)
+
+        ## error status
+        ## find error number after 212
+        error_status = line[line.index('212') + 1]
+        error_status = float(error_status[:5] + 'e' + error_status[5:])
+        print("error_status:", error_status)
+        #error_status = 1
+        if error_status:
+            ## print to bot
+            ## !!!??? \todo correct text: remove "Test:"
+            text = f"Test:  LVS Error status: {error_status}"
             print(text)
-            f.write(text + '\n')
-            return -1
-
-        time.sleep(self.com_wait)
-
-        ## read answer from buffer
-        self.buff = ""
-        while self.ser.in_waiting:
-            line = self.ser.read() #.decode()
-            if (line):
-                self.buff += line
-                #print("{{"+line+"}}")
-                #f.write("{{"+str(line)+"}}\n")
-                if line == b'\x03':
-                    ## read 2 bytes to finish detector data line
-                    for _ in range(2):
-                        line = self.ser.read()
-                        if line: 
-                            self.buff += line
-
-                    ## print data string to data file
-                    print("One line received from device")
-                    f.write("{{" + str(self.buff) + "}}\n")
-                    ## open data file
-                    fdata = open(self.datafilename, 'a')
-                    fdata.write(self.buff.decode() + '\n')
-                    fdata.write(str(self.buff) + '\n')
-                    fdata.close()
-
-                    ## refresh buffer 
-                    self.buff = ''
-
-        #print(self.buff)
-
-        if len(self.buff) == 0:
-            text = 'Warning!! No answer to request for command' + command
-            print(text)
-            f.write(text + '\n')
-        #print('request(): buff = ', self.buff)
-        f.write("\n")
-        f.close()
-
-
+            bot = telebot.TeleBot(config.token, parse_mode=None)
+            bot.send_message(config.channel, text)
 
 
 
@@ -262,7 +304,7 @@ class LVS_device:
                 self.file_raw = open(filename, "a")
             self.file_raw.write(line)
             self.file_raw.write('\n')
-            
+
         self.file_raw.flush()
         self.mm = mm
         self.yy = yy

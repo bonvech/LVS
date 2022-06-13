@@ -7,8 +7,8 @@ device = LVS_device()
 device.print_params()
 device.write_path_file()
 
-#device.connect()
-#device.request('$TCA:END',0,0)
-#device.unconnect()
+device.connect()
+device.request()
+device.unconnect()
 
-x = input("\n\ninput enter to finish")
+#x = input("\n\ninput enter to finish")
