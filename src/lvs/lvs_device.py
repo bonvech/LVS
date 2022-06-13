@@ -264,17 +264,20 @@ class LVS_device:
 
         ## error status
         ## find error number after 212
-        error_status = line[line.index('212') + 1]
-        error_status = float(error_status[:5] + 'e' + error_status[5:])
-        print("error_status:", error_status)
-        #error_status = 1
-        if error_status:
-            ## print to bot
-            ## !!!??? \todo correct text: remove "Test:"
-            text = f"Test:  LVS Error status: {error_status}"
-            print(text)
-            bot = telebot.TeleBot(config.token, parse_mode=None)
-            bot.send_message(config.channel, text)
+        try:
+            error_status = line[line.index('212') + 1]
+            error_status = float(error_status[:5] + 'e' + error_status[5:])
+            print("error_status:", error_status)
+            #error_status = 1
+            if error_status:
+                ## print to bot
+                ## !!!??? \todo correct text: remove "Test:"
+                text = f"Test:  LVS Error status: {error_status}"
+                print(text)
+                bot = telebot.TeleBot(config.token, parse_mode=None)
+                bot.send_message(config.channel, text)
+        except ValueError:
+            print('no error number in line')
 
 
 
