@@ -1,12 +1,9 @@
-
-
-from TCA08_device import TCA08_device
+from lvs_device import LVS_device
 #import socket
 #import sys
 #import socket
 import time
 #import os
-
 
 
 
@@ -30,26 +27,7 @@ import time
 ##
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-device = TCA08_device()
+device = LVS_device()
 
 ##device.read_path_file()
 ##device.print_params()
@@ -65,16 +43,7 @@ device = TCA08_device()
 
 device.connect()
 device.request('BH_protocol::DA',0,0)
-
-
 device.unconnect()
-
 
 print("QQ")
 #x = input()
-
-
-
-
-
-
