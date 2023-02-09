@@ -1,6 +1,4 @@
 ﻿echo
-cd C:\Users\krs_2\Desktop\AA\LVS\Python\tca08\
+cd D:\AA\LVS\src\
 python main.py
-
-pause
 pause

@@ -7,14 +7,17 @@ import time
 
 
 
-##portx=“COM5”
-##bps=9600
+##
+##portx='COM1'
+##bps=1200
 ##timex=5
 ### Последовательный порт выполняется до тех пор, пока он не будет открыт, а затем использование команды open сообщит об ошибке
 ##ser = serial.Serial(portx, int(bps), timeout=1, parity=serial.PARITY_NONE,stopbits=1)
 ##if (ser.isOpen()):
 ##print(“open success”)
 ### Некоторые данные в строке порта должны быть декодированы
+##
+##command = 
 ##ser.write(“hello”.encode())
 ##while (True):
 ##line = ser.readline()
@@ -24,7 +27,7 @@ import time
 ##else:
 ##print(“open failed”)
 ##ser.close () # Закройте порт
-##
+
 
 
 device = LVS_device()
@@ -42,8 +45,21 @@ device = LVS_device()
 ##device.write_path_file()
 
 device.connect()
-device.request('BH_protocol::DA',0,0)
+#device.request('BH_protocol::DA')
+
+for i in range(15):
+    print("request", i)
+    device.request('Interval_all')
+    #time.sleep(30)
+device.request('Interval_all')
 device.unconnect()
+
 
 print("QQ")
 #x = input()
+
+
+
+
+
+
