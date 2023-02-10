@@ -11,6 +11,8 @@ import serial
 
 class LVS_device:
     def __init__(self):
+        self.develop = False ## flag True for develop stage
+        
         self.MINID = 0
         self.MAXID = 0
 
@@ -19,7 +21,7 @@ class LVS_device:
         self.mm = '0'        ## month for filename of raw file
         self.yy_D = '0'      ##  year for filename of D-file
         self.mm_D = '0'      ## month for filename of D-file 
-        self.pathfile = ''   ## work directory name
+        self.pathfile = None   ## work directory name
         self.xlsfilename = ''      ## exl file name
         self.file_raw = None       ## file for raw data
         self.file_format_D = None  ## file for raw data
@@ -27,21 +29,35 @@ class LVS_device:
 
         self.buff = ''
         self.info = ''
+        self.device_name = None
+        
         self.portName = 'COM7'
-        self.BPS = 1200
-        self.PARITY = serial.PARITY_NONE
+        self.BPS      = 1200
+        self.PARITY   = serial.PARITY_NONE
         self.STOPBITS = serial.STOPBITS_ONE
         self.BYTESIZE = serial.EIGHTBITS
-        self.TIMEX = 1
+        self.TIMEX    = 1
         
         self.datafilename = 'data.txt'
         self.logfilename  = 'log.txt'
 
+        if 'ix' in os.name:
+            self.sep = '/'  ## -- path separator for LINIX
+        else:
+            self.sep = '\\' ## -- path separator for Windows
+
+        ## ----------------------------------
+        ##    run init procedures
+        #self.read_path_file()
         self.fill_header()
 
 
+
+    ## ----------------------------------------------------------------
+    ##  Fill header for data file
+    ## ----------------------------------------------------------------
     def fill_header(self):
-        self.file_header = ""
+        self.file_header = "Date;Time;Type;D/N;Pump Run Time Total(h:m);Time of Measurement(h:m);Motorspeed(%);Actual(m3/h);Actual(Nm3/h);Actual(m3);Actual(Nm3);Filter Press.(hPa);Air Pressure(hPa);Outdoor Temp.('C);Filter Temp.('C);Chamber Temp.('C);Temperature orifice('C);Rel.Humidity(%);Magazine Position;Measuring Typ;Sample ID;Max. Planned Pos.;Event;Error"
 
 
     def read_path_file(self):
@@ -119,6 +135,9 @@ class LVS_device:
         f.close()
 
 
+    ## ----------------------------------------------------------------
+    ## print params from config file
+    ## ----------------------------------------------------------------
     def print_params(self):
         print("Directory for DATA:   ",self.pathfile)
         print("portName = ", self.portName)
@@ -129,7 +148,7 @@ class LVS_device:
         print("TIMEX = ",    self.TIMEX)
         print("MINID = ",    self.MINID)
 
-    def connect(self):
+
 # Последовательный порт выполняется до тех пор, пока он не будет открыт, а затем использование команды open сообщит об ошибке
 ##        self.ser = serial.Serial(
 ##                port=self.COM,
@@ -138,22 +157,6 @@ class LVS_device:
 ##                parity=self.PARITY,
 ##                stopbits=self.STOPBIT
 ##                )
-##
-##        self.ser = serial.Serial(
-##                port=self.portName,
-##                baudrate=self.BPS,
-##                parity=self.PARITY,
-##                stopbits=self.STOPBITS,
-##                bytesize=self.BYTESIZE
-##                )
-        self.ser = serial.Serial(
-                port=self.portName,
-                baudrate=self.BPS,
-                parity=self.PARITY,
-                stopbits=self.STOPBITS,
-                bytesize=self.BYTESIZE
-                )
-
 ##        self.ser = serial.Serial(
 ##                port=self.portName,
 ##                baudrate=115200,
@@ -163,18 +166,44 @@ class LVS_device:
 ##                )
 
 
+    ## ----------------------------------------------------------------
+    ## Open COM port
+    ## ----------------------------------------------------------------
+    def connect(self):
+        print(f"Connection to COM port {self.portName} ...", end='')
+        if self.develop:
+            print("   simulation")
+            return 2
+
+        self.ser = serial.Serial(
+                port =     self.portName,
+                baudrate = self.BPS,       # 115200,
+                parity =   self.PARITY,    # serial.PARITY_NONE,
+                stopbits = self.STOPBITS,  # serial.STOPBITS_ONE,
+                bytesize = self.BYTESIZE,  # serial.EIGHTBITS
+                #timeout  = self.timeout
+                )
         if (self.ser.isOpen()):
-            print("open success\n")
-        else:
-            print("open failed\n")
-        
+            print(f"{self.portName} port open success\n")
+            return 0
+        print(f"\n\n Error! {self.portName} port open failed\n")
+        return -1
 
 
-
+    ## ----------------------------------------------------------------
+    ## Close COM port
+    ## ----------------------------------------------------------------
     def unconnect(self):
-        self.ser.close() # Закройте порт
+        print(f"Close COM port {self.portName} ... ", end='')
+        if self.develop:
+            print("...   simulation")
+            return 2
+        self.ser.close() # Закройте порт    
 
 
+    ## ----------------------------------------------------------------
+    ## Send request to COM port
+    ## ----------------------------------------------------------------
     def request(self, command):
         f = open(self.logfilename, 'a') 
 
@@ -183,41 +212,43 @@ class LVS_device:
             f.write(str(command))
             print(command)
             self.ser.write(command.encode())
+            time.sleep(5)
+        else:
+            time.sleep(30)
 
-        time.sleep(5)
-        if 'BH_protocol' not in command:
-            time.sleep(25)
-
-##        while self.ser.in_waiting:
-##            line = str(self.ser.readline())
-##            if (line):
-##                print("{{"+line+"}}")
-##                f.write("{{"+str(line)+"}}\n")
-##                line=0
-##            else:
-##                print("open failed\n")
-##                break
         dataline = ''
         while self.ser.in_waiting:
-            line = str(self.ser.read().decode())
-            dataline = dataline + line
-            print(line)
+            line = self.ser.read()
+            #print(line)
             if (line):
-                print("{{"+line+"}}")
-                f.write("{{"+str(line)+"}}\n")
-                line=0
+                try:
+                    line = str(line.decode())
+                    #print("{{"+line+"}}")
+                    #f.write("{{"+str(line)+"}}\n")
+                    dataline = dataline + line
+                except:
+                    print("Cant decode byte:", ord(line), line)
+                    f.write(' '.join(["Cant decode byte:", str(ord(line)) + ' ']))
+                    #f.write(line)
+                #line=0
             else:
-                print("open failed\n")
+                text = "Error: no line in read in request :: is open failed\n"
+                print(text)
+                f.write(text)
                 break
-        f.write("\n")       
+                
+        dataline = dataline.rstrip()
+        # write to logfilename
+        f.write("dataline: ")
+        f.write(dataline + '\n')
         f.close()
         
-        #dataline = dataline.decode()
-        f = open(self.datafilename, 'a')
-        f.write(dataline + '\n')
-        f.write('\n')
-        f.close()
+        # write dataline to datafile
         print(dataline)
+        if len(dataline) > 10:
+            f = open(self.datafilename, 'a')
+            f.write(dataline + '\n')
+            f.close()
 
 
 
