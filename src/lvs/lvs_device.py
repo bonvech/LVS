@@ -12,25 +12,23 @@ import serial
 class LVS_device:
     def __init__(self):
         self.develop = False ## flag True for develop stage
+        self.verbose = True  ## flag True for print a lot of information
         
+        self.device_name = None
         self.MINID = 0
         self.MAXID = 0
 
         ## for data files
-        self.yy = '0'        ##  year for filename of raw file
-        self.mm = '0'        ## month for filename of raw file
-        self.yy_D = '0'      ##  year for filename of D-file
-        self.mm_D = '0'      ## month for filename of D-file 
-        self.pathfile = None   ## work directory name
-        self.xlsfilename = ''      ## exl file name
-        self.file_raw = None       ## file for raw data
-        self.file_format_D = None  ## file for raw data
-        self.file_header = ''
+        self.workdir = "."       ## work directory name
+        self.datadir = "."       ## data directory name
+        self.datafilename = '_lvs_data.csv'
+        self.logfilename  = '_lvs_log.txt'
+        self.datafile_header = ''
 
-        self.buff = ''
-        self.info = ''
-        self.device_name = None
+        #self.buff = ''
+        #self.info = ''
         
+        ##  COM port properties
         self.portName = 'COM7'
         self.BPS      = 1200
         self.PARITY   = serial.PARITY_NONE
@@ -38,26 +36,53 @@ class LVS_device:
         self.BYTESIZE = serial.EIGHTBITS
         self.TIMEX    = 1
         
-        self.datafilename = 'data.txt'
-        self.logfilename  = 'log.txt'
-
+        ##  path separator
         if 'ix' in os.name:
             self.sep = '/'  ## -- path separator for LINIX
         else:
             self.sep = '\\' ## -- path separator for Windows
 
-        ## ----------------------------------
+        ##  ----------------------------------
         ##    run init procedures
-        #self.read_path_file()
         self.fill_header()
+        #self.read_path_file()
+        ##  prepare dirs and files for data and logs
+        self.prepare_dirs()
+    
 
-
-
-    ## ----------------------------------------------------------------
-    ##  Fill header for data file
-    ## ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##   Fill header for data file
+    ##  ----------------------------------------------------------------
     def fill_header(self):
-        self.file_header = "Date;Time;Type;D/N;Pump Run Time Total(h:m);Time of Measurement(h:m);Motorspeed(%);Actual(m3/h);Actual(Nm3/h);Actual(m3);Actual(Nm3);Filter Press.(hPa);Air Pressure(hPa);Outdoor Temp.('C);Filter Temp.('C);Chamber Temp.('C);Temperature orifice('C);Rel.Humidity(%);Magazine Position;Measuring Typ;Sample ID;Max. Planned Pos.;Event;Error"
+        self.datafile_header = "Date;Time;Type;D/N;Pump Run Time Total(h:m);Time of Measurement(h:m);Motorspeed(%);Actual(m3/h);Actual(Nm3/h);Actual(m3);Actual(Nm3);Filter Press.(hPa);Air Pressure(hPa);Outdoor Temp.('C);Filter Temp.('C);Chamber Temp.('C);Temperature orifice('C);Rel.Humidity(%);Magazine Position;Measuring Typ;Sample ID;Max. Planned Pos.;Event;Error"
+
+
+    ##  ----------------------------------------------------------------
+    ##   Make dirs and filenames to save data
+    ##  ----------------------------------------------------------------
+    def prepare_dirs(self):
+        ## get current datatime
+        tt = datetime.now()
+        timestamp = f"{tt.year}_{tt.month:02}"
+
+        path = self.datadir
+        if not os.path.exists(path):   os.system("mkdir " + path)
+
+        ## for data files
+        self.datafilename = path + self.sep + timestamp + self.datafilename
+        if not os.path.lexists(self.datafilename):
+            fdata = open(self.datafilename, "w")
+            fdata.write(self.datafile_header)
+            fdata.close()
+
+        ## for log files
+        self.logfilename  = path + self.sep + timestamp + self.logfilename 
+        
+        if self.verbose:
+            print(self.datafilename)
+            print(self.logfilename)
+
 
 
     def read_path_file(self):
@@ -92,19 +117,7 @@ class LVS_device:
                 self.MINID = int(param.split('=')[1])
                 self.MAXID = self.MINID
             else:
-                self.pathfile = param
-                os.system("mkdir " + param)
-                path = self.pathfile + '\\Data\\'
-                os.system("mkdir " + path)
-                path = self.pathfile + '\OffLineData\\'
-                os.system("mkdir " + path)
-                path = self.pathfile + '\OnLineData\\'
-                os.system("mkdir " + path)
-                path = self.pathfile + '\Logs\\'
-                os.system("mkdir " + path)
-                path = self.pathfile + '\\table\\'
-                os.system("mkdir " + path)
-    #    # \todo ПОПРАВИТЬ в конфигурацилонном файле СЛЕШИ В ИМЕНИ ДИРЕКТОРИИ  !!!   для ВИНДА
+                self.workdir = param
 
 
     def write_path_file(self):
@@ -135,11 +148,11 @@ class LVS_device:
         f.close()
 
 
-    ## ----------------------------------------------------------------
-    ## print params from config file
-    ## ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  Print params 
+    ##  ----------------------------------------------------------------
     def print_params(self):
-        print("Directory for DATA:   ",self.pathfile)
+        print("Directory for DATA:   ", self.datadir)
         print("portName = ", self.portName)
         print("BPS = ",      self.BPS)
         print("STOBITS = ",  self.STOPBITS)
@@ -166,9 +179,9 @@ class LVS_device:
 ##                )
 
 
-    ## ----------------------------------------------------------------
-    ## Open COM port
-    ## ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  Open COM port
+    ##  ----------------------------------------------------------------
     def connect(self):
         print(f"Connection to COM port {self.portName} ...", end='')
         if self.develop:
@@ -190,9 +203,9 @@ class LVS_device:
         return -1
 
 
-    ## ----------------------------------------------------------------
-    ## Close COM port
-    ## ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  Close COM port
+    ##  ----------------------------------------------------------------
     def unconnect(self):
         print(f"Close COM port {self.portName} ... ", end='')
         if self.develop:
@@ -201,15 +214,15 @@ class LVS_device:
         self.ser.close() # Закройте порт    
 
 
-    ## ----------------------------------------------------------------
-    ## Send request to COM port
-    ## ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  Send request to COM port
+    ##  ----------------------------------------------------------------
     def request(self, command):
-        f = open(self.logfilename, 'a') 
+        flog = open(self.logfilename, 'a') 
 
         if 'BH_protocol::DA' in command:
             command = chr(2) + 'D'+'A' + chr(3)
-            f.write(str(command))
+            flog.write(str(command))
             print(command)
             self.ser.write(command.encode())
             time.sleep(5)
@@ -223,322 +236,40 @@ class LVS_device:
             if (line):
                 try:
                     line = str(line.decode())
-                    #print("{{"+line+"}}")
-                    #f.write("{{"+str(line)+"}}\n")
+                    f.write("{{"+str(line)+"}}\n")  #print("{{"+line+"}}")
                     dataline = dataline + line
-                except:
+                except Exception as err:
+                    ##  напечатать строку ошибки
+                    text = f"ERROR: {err}" + '\n'
+                    print(text)
+                    flog.write(text)
+                    ##  напечатать ошибочный байт
                     print("Cant decode byte:", ord(line), line)
-                    f.write(' '.join(["Cant decode byte:", str(ord(line)) + ' ']))
-                    #f.write(line)
-                #line=0
+                    flog.write("Cant decode byte: " + str(ord(line)) + '\n')
+                    flog.write("{{"+str(line)+"}}\n")
+                line=""
             else:
                 text = "Error: no line in read in request :: is open failed\n"
                 print(text)
-                f.write(text)
+                flog.write(text)
                 break
-                
-        dataline = dataline.rstrip()
-        # write to logfilename
-        f.write("dataline: ")
-        f.write(dataline + '\n')
-        f.close()
         
-        # write dataline to datafile
+        dataline = dataline.replace('\r', '')
+        ## write to logfilename
+        flog.write("dataline: " + dataline.rstrip() + '\n')
+        flog.close()
+        
+        ## write dataline to datafile
         print(dataline)
-        if len(dataline) > 10:
-            f = open(self.datafilename, 'a')
-            f.write(dataline + '\n')
-            f.close()
+        if len(dataline) > 4:
+            with open(self.datafilename, 'a') as fdata:
+                fdata.write(dataline) 
 
+                
+    ##  ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
+    ##  ----------------------------------------------------------------
 
-
-    def parse_raw_data(self):
-        if len(self.buff) < 10:
-            return
-        #self.buff = self.buff.split("TCA>")
-        print(self.buff)
-        for line in self.buff:
-            if len(line) < 50:
-                continue
-            print(line)
-            mm, dd, yy = line.split("|")[2][:10].split('/')
-            if mm != self.mm or yy != self.yy:
-                filename = '_'.join((yy, mm)) + '_TCA-S08-01006.raw'
-                filename = self.pathfile +'\\raw\\' + filename
-                print(filename)
-                if self.file_raw:
-                    self.file_raw.close()
-                self.file_raw = open(filename, "a")
-            self.file_raw.write(line)
-            self.file_raw.write('\n')
-            
-        self.file_raw.flush()
-        self.mm = mm
-        self.yy = yy
-
-
-    def parse_format_W_data(self):
-        ## main
-        print('qqqqqqqqqqq')
-        if len(self.buff) < 10:
-            return
-        #self.buff = self.buff.split("TCA>")
-        if 'ix' in os.name:
-            self.buff = self.buff.split("\n")  ## for Linux
-        else:
-            self.buff = self.buff.split("\r\n") ## for Windows
-
-        lastmm, lastyy = '0', '0'
-        filename = ''
-        lastline = ''
-        need_check = True
-        dateformat = "%Y/%m/%d %H:%M:%S"
-        #print('lines:')
-        #print(self.buff)
-
-        ## for excel data
-        header = self.file_header[self.file_header.find("Date"):].split("; ")
-        columns = ['Date(yyyy/MM/dd)', 'Time(hh:mm:ss)', 'BC1', 'BC2', 'BC3', 'BC4', 'BC5', 'BC6', 'BC7', 'BB(%)']
-        colnums = [header.index(x) for x in columns]      
-        rows_list = []
-        
-        for line in self.buff[::-1]:
-            #print('line:   ',line)
-            yy, mm, _ = line.split()[0].split('/')
-            #print(yy, mm)
-
-            # for first line or new file
-            if mm != lastmm or yy != lastyy:
-                ##### ddat file 
-                filename = '_'.join((yy, mm)) + '_TCA-S08-01006.wdat'
-                filename = self.pathfile +'\wdat\\' + filename
-                print(filename,mm,yy,lastmm,lastyy)
-                try:
-                    ## ddat file exists
-                    f = open(filename, 'r')
-                    lastline = f.readlines()[-1].split()
-                    #print(lastline)
-                    f.close()
-                    print('3')
-                    lasttime = lastline[0] + ' ' + lastline[1]
-                    print('1  ',lasttime)
-                    lasttime = datetime.strptime(lasttime, dateformat)
-                    print('4',lastmm,lastyy,mm,yy)
-                    need_check = True
-                except:
-                    ## no file
-                    print('NOT FILE', filename)
-                    f = open(filename, 'a')        
-                    f.write(self.file_header)
-                    f.close()
-                    lastline = []
-                    need_check = False 
-                lastmm = mm
-                lastyy = yy
-              
-            ## add line data to dataframe 
-            line_to_dataframe = [line.split()[i] for i in colnums]
-            #print("line_to_dataframe:>",line_to_dataframe)
-            line_to_dataframe = line_to_dataframe[:2]\
-                                + [int(x) for x in line_to_dataframe[2:-1]]\
-                                + [float(line_to_dataframe[-1])]
-            rows_list.append(line_to_dataframe)
-            #print(rows_list)
-               
-
-            ## check line to be added to datafile
-            if need_check: # and len(lastline):
-                #print(line)
-                nowtime  = line.split()[0] + ' ' + line.split()[1]
-                #print(nowtime)
-                nowtime  = datetime.strptime(nowtime,  dateformat)
-                print(nowtime - lasttime)
-                ## if line was printed earlier
-                if nowtime <= lasttime:
-                    continue
-
-            need_check = False
-
-            ## write to file
-            f = open(filename, 'a')
-            f.write(line+'\n')
-            f.close()
-            
-
-##        ## ##### write dataframe to excel file
-##        ## make dataFrame from list
-##        excel_columns = ['Date', 'Time (Moscow)', 'BC1', 'BC2', 'BC3', 'BC4', 'BC5', 'BC6',
-##            'BC7', 'BB(%)', 'BCbb', 'BCff', 'Date.1', 'Time (Moscow).1']
-##        dataframe_from_buffer = pd.DataFrame(rows_list, columns=excel_columns[:-4])
-##        ## add columns
-##        dataframe_from_buffer['BCbb'] = dataframe_from_buffer['BB(%)'].astype(float) * dataframe_from_buffer['BC5'].astype(float) / 100
-##        dataframe_from_buffer['BCff'] = (100 - dataframe_from_buffer['BB(%)'].astype(float)) / 100 *  dataframe_from_buffer['BC5'].astype(float)
-##        dataframe_from_buffer['Date.1'] = dataframe_from_buffer['Date']
-##        dataframe_from_buffer['Time (Moscow).1'] = dataframe_from_buffer['Time (Moscow)']
-##        print(dataframe_from_buffer.head())
-##
-##        ##### excel file #####                
-##        xlsfilename = yy + '_TCA-S08-01006.xlsx'
-##        xlsfilename = self.pathfile + 'tableW/' + xlsfilename
-##        self.xlsfilename = xlsfilename
-##        ## read or cleate datafame
-##        xlsdata = self.read_dataframe_from_excel_file(xlsfilename)
-##        print(xlsdata.head())
-##        if xlsdata.shape[0]:
-##            dropset = ['Date', 'Time (Moscow)']
-##            xlsdata = xlsdata.append(dataframe_from_buffer, ignore_index=True).drop_duplicates(subset=dropset, keep='last')
-##            #print("Append:", xlsdata)
-##            xlsdata.set_index('Date').to_excel(xlsfilename, engine='openpyxl')
-##        else:
-##            print("New data:")
-##            dataframe_from_buffer.set_index('Date').to_excel(xlsfilename, engine='openpyxl')
-##            #dataframe_from_buffer.to_excel(xlsfilename, engine='openpyxl')
-
-    def parse_format_D_data(self):
-        ## main
-        if len(self.buff) < 10:
-            return
-        #self.buff = self.buff.split("TCA>")
-        if 'ix' in os.name:
-            self.buff = self.buff.split("\n")  ## for Linux
-        else:
-            self.buff = self.buff.split("\r\n") ## for Windows
-
-        lastmm, lastyy = '0', '0'
-        filename = ''
-        lastline = ''
-        need_check = True
-        dateformat = "%Y/%m/%d %H:%M:%S"
-        #print('lines:')
-        #print(self.buff)
-
-        ## for excel data
-        header = self.file_header[self.file_header.find("Date"):].split("; ")
-        columns = ['Date(yyyy/MM/dd)', 'Time(hh:mm:ss)', 'BC1', 'BC2', 'BC3', 'BC4', 'BC5', 'BC6', 'BC7', 'BB(%)']
-        colnums = [header.index(x) for x in columns]      
-        rows_list = []
-        
-        for line in self.buff[::-1]:
-            #print('line:   ',line)
-            yy, mm, _ = line.split()[0].split('/')
-            #print(yy, mm)
-
-            # for first line or new file
-            if mm != lastmm or yy != lastyy:
-                ##### ddat file 
-                filename = '_'.join((yy, mm)) + '_TCA-S08-01006.ddat'
-                filename = self.pathfile +'\ddat\\' + filename
-                print(filename,mm,yy,lastmm,lastyy)
-                try:
-                    ## ddat file exists
-                    f = open(filename, 'r')
-                    lastline = f.readlines()[-1].split()
-                    #print(lastline)
-                    f.close()
-                    print('3')
-                    lasttime = lastline[0] + ' ' + lastline[1]
-                    print('1  ',lasttime)
-                    lasttime = datetime.strptime(lasttime, dateformat)
-                    print('4',lastmm,lastyy,mm,yy)
-                    need_check = True
-                except:
-                    ## no file
-                    print('NOT FILE', filename)
-                    f = open(filename, 'a')        
-                    f.write(self.file_header)
-                    f.close()
-                    lastline = []
-                    need_check = False 
-                lastmm = mm
-                lastyy = yy
-              
-            ## add line data to dataframe 
-            line_to_dataframe = [line.split()[i] for i in colnums]
-            #print("line_to_dataframe:>",line_to_dataframe)
-            line_to_dataframe = line_to_dataframe[:2]\
-                                + [int(x) for x in line_to_dataframe[2:-1]]\
-                                + [float(line_to_dataframe[-1])]
-            rows_list.append(line_to_dataframe)
-            #print(rows_list)
-               
-
-            ## check line to be added to datafile
-            if need_check: # and len(lastline):
-                #print(line)
-                nowtime  = line.split()[0] + ' ' + line.split()[1]
-                #print(nowtime)
-                nowtime  = datetime.strptime(nowtime,  dateformat)
-                print(nowtime - lasttime)
-                ## if line was printed earlier
-                if nowtime <= lasttime:
-                    continue
-
-            need_check = False
-
-            ## write to file
-            f = open(filename, 'a')
-            f.write(line+'\n')
-            f.close()
-            
-
-        ## ##### write dataframe to excel file
-        ## make dataFrame from list
-        excel_columns = ['Date', 'Time (Moscow)', 'BC1', 'BC2', 'BC3', 'BC4', 'BC5', 'BC6',
-            'BC7', 'BB(%)', 'BCbb', 'BCff', 'Date.1', 'Time (Moscow).1']
-        dataframe_from_buffer = pd.DataFrame(rows_list, columns=excel_columns[:-4])
-        ## add columns
-        dataframe_from_buffer['BCbb'] = dataframe_from_buffer['BB(%)'].astype(float) * dataframe_from_buffer['BC5'].astype(float) / 100
-        dataframe_from_buffer['BCff'] = (100 - dataframe_from_buffer['BB(%)'].astype(float)) / 100 *  dataframe_from_buffer['BC5'].astype(float)
-        dataframe_from_buffer['Date.1'] = dataframe_from_buffer['Date']
-        dataframe_from_buffer['Time (Moscow).1'] = dataframe_from_buffer['Time (Moscow)']
-        print(dataframe_from_buffer.head())
-
-        ##### excel file #####                
-        xlsfilename = yy + '_TCA-S08-01006.xlsx'
-        xlsfilename = self.pathfile + 'table/' + xlsfilename
-        self.xlsfilename = xlsfilename
-        ## read or cleate datafame
-        xlsdata = self.read_dataframe_from_excel_file(xlsfilename)
-        print(xlsdata.head())
-        if xlsdata.shape[0]:
-            dropset = ['Date', 'Time (Moscow)']
-            xlsdata = xlsdata.append(dataframe_from_buffer, ignore_index=True).drop_duplicates(subset=dropset, keep='last')
-            #print("Append:", xlsdata)
-            xlsdata.set_index('Date').to_excel(xlsfilename, engine='openpyxl')
-        else:
-            print("New data:")
-            dataframe_from_buffer.set_index('Date').to_excel(xlsfilename, engine='openpyxl')
-            #dataframe_from_buffer.to_excel(xlsfilename, engine='openpyxl')
-
-
-    def read_dataframe_from_excel_file(self, xlsfilename):
-        columns = ['Date', 'Time (Moscow)', 'BC1', 'BC2', 'BC3', 'BC4', 'BC5', 'BC6',
-            'BC7', 'BB(%)', 'BCbb', 'BCff', 'Date.1', 'Time (Moscow).1']
-        try:
-            ## read excel file to dataframe
-            ## need to make "pip install openpyxl==3.0.9" if there are problems with excel file reading
-            datum = pd.read_excel(xlsfilename)
-            print(xlsfilename, "read")
-        except:
-            # create excel 
-            datum = pd.DataFrame(columns=columns)
-            print("No file", xlsfilename)
-            
-        return datum
-
-
-    def plot_from_excel_file(self, xlsfilename):
-        try:
-            ## read excel file to dataframe
-            ## need to make "pip install openpyxl==3.0.9" if there are problems with excel file reading
-            datum = pd.read_excel(xlsfilename)
-        except:
-            print("Error! No excel data file:", xlsfilename)
-            return
-
-        fig = plt.figure(figsize=(14, 5))
-        plt.plot(datum["BCff"][-2880:], 'k', label='BCff')
-        plt.plot(datum["BCbb"][-2880:], 'orange', label='BCbb')
-        plt.legend()
-        plt.grid()
-        plt.savefig('Moscow_bb.png', bbox_inches='tight')
