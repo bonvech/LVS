@@ -73,7 +73,7 @@ class LVS_device:
         self.datafilename = path + self.sep + timestamp + self.datafilename
         if not os.path.lexists(self.datafilename):
             fdata = open(self.datafilename, "w")
-            fdata.write(self.datafile_header)
+            fdata.write(self.datafile_header + '\n')
             fdata.close()
 
         ## for log files
@@ -82,7 +82,6 @@ class LVS_device:
         if self.verbose:
             print(self.datafilename)
             print(self.logfilename)
-
 
 
     def read_path_file(self):
@@ -235,8 +234,9 @@ class LVS_device:
             #print(line)
             if (line):
                 try:
+                    flog.write("{{"+str(line)+"}}\n")  #print("{{"+line+"}}")
                     line = str(line.decode())
-                    f.write("{{"+str(line)+"}}\n")  #print("{{"+line+"}}")
+                    flog.write("{{"+str(line)+"}}\n")  #print("{{"+line+"}}")
                     dataline = dataline + line
                 except Exception as err:
                     ##  напечатать строку ошибки
@@ -246,7 +246,7 @@ class LVS_device:
                     ##  напечатать ошибочный байт
                     print("Cant decode byte:", ord(line), line)
                     flog.write("Cant decode byte: " + str(ord(line)) + '\n')
-                    flog.write("{{"+str(line)+"}}\n")
+                    flog.write("{{"+str(line)+"}}-\n")
                 line=""
             else:
                 text = "Error: no line in read in request :: is open failed\n"
@@ -254,7 +254,7 @@ class LVS_device:
                 flog.write(text)
                 break
         
-        dataline = dataline.replace('\r', '')
+        dataline = dataline.replace('\r', '').replace('\x00','')
         ## write to logfilename
         flog.write("dataline: " + dataline.rstrip() + '\n')
         flog.close()
@@ -262,10 +262,12 @@ class LVS_device:
         ## write dataline to datafile
         print(dataline)
         if len(dataline) > 4:
-            with open(self.datafilename, 'a') as fdata:
-                fdata.write(dataline) 
+            fdata = open(self.datafilename, 'a')
+            fdata.write(dataline) 
+            fdata.close()
 
-                
+
+
     ##  ----------------------------------------------------------------
     ##  ----------------------------------------------------------------
     ##  ----------------------------------------------------------------
