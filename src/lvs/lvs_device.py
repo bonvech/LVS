@@ -45,9 +45,11 @@ class LVS_device:
         ##  ----------------------------------
         ##    run init procedures
         self.fill_header()
-        if self.read_config_file():
-            sys.exit(10)
-        self.print_params()
+        if self.read_config_file(): 
+            sys.exit(10)  ## errors in read config file
+        if self.verbose:
+            self.print_params()
+        
         ##  prepare dirs and files for data and logs
         self.prepare_dirs()
     
