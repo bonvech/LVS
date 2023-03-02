@@ -1,12 +1,13 @@
-import sys
-import socket
+#import sys
+#import socket
 import time
 import datetime
 from datetime import datetime
-#import matplotlib.pyplot as plt
-#import pandas as pd
 import os
 import serial
+import telebot
+import config
+
 
 
 class LVS_device:
@@ -62,13 +63,38 @@ class LVS_device:
     ##   Make dirs and filenames to save data
     ##  ----------------------------------------------------------------
     def prepare_dirs(self):
+        path = self.datadir
+        if not os.path.exists(path):   
+            os.system("mkdir " + path)
+        
+        if not self.filenames_are_ok():
+            self.create_filenames()
+
+
+    ##  ----------------------------------------------------------------
+    ##   Check output filenames content current month
+    ##  ----------------------------------------------------------------
+    def filenames_are_ok(self):
         ## get current datatime
         tt = datetime.now()
         timestamp = f"{tt.year}_{tt.month:02}"
 
-        path = self.datadir
-        if not os.path.exists(path):   os.system("mkdir " + path)
+        if (timestamp in self.datafilename) and (timestamp in self.logfilename):
+            return True  ##  OK
+        
+        return False
 
+
+    ##  ----------------------------------------------------------------
+    ##   Create filenames to save data
+    ##  ----------------------------------------------------------------
+    def create_filenames(self):
+        ## get current datatime
+        tt = datetime.now()
+        timestamp = f"{tt.year}_{tt.month:02}"
+          
+        path = self.datadir
+          
         ## for data files
         self.datafilename = path + self.sep + timestamp + self.datafilename
         if not os.path.lexists(self.datafilename):
@@ -79,9 +105,14 @@ class LVS_device:
         ## for log files
         self.logfilename  = path + self.sep + timestamp + self.logfilename 
         
+        ##  print messages
+        text = f"New file {self.datafilename.split(self.sep)[-1]} created"
+        bot = telebot.TeleBot(config.token, parse_mode=None)
+        bot.send_message(config.channel, text)
         if self.verbose:
             print(self.datafilename)
             print(self.logfilename)
+
 
 
     def read_path_file(self):
