@@ -46,7 +46,7 @@ class LVS_device:
         ##  ----------------------------------
         ##    run init procedures
         self.fill_header()
-        #self.read_path_file()
+        self.read_config_file()
         ##  prepare dirs and files for data and logs
         self.prepare_dirs()
     
@@ -112,6 +112,38 @@ class LVS_device:
         if self.verbose:
             print(self.datafilename)
             print(self.logfilename)
+
+
+    ## ----------------------------------------------------------------
+    ## read config params from configfile lvs_config.py as a python module
+    ## ----------------------------------------------------------------
+    def read_config_file(self):
+        # check file
+        try:
+            import lvs_config as config
+        except:
+            print(f"\nread_config_file {__name__} Error!! No file to read config\n\n")
+            return -1
+
+        self.portName = config.COM
+        self.datadir  = config.datapath
+
+        try: 
+            self.MINID = int(config.MINID)
+        except:
+            pass
+        #self.MAXID = self.MINID
+        
+        try:
+            self.develop = config.develop
+        except:
+            pass
+
+        if self.develop:
+            print("--------------------------------------------")
+            print("  Warning!   Run in emulation mode!    ")
+            print("--------------------------------------------")
+
 
 
 
