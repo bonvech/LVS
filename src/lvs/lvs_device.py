@@ -1,5 +1,4 @@
-#import sys
-#import socket
+import sys
 import time
 import datetime
 from datetime import datetime
@@ -7,7 +6,6 @@ import os
 import serial
 import telebot
 import config
-
 
 
 class LVS_device:
@@ -22,8 +20,9 @@ class LVS_device:
         ## for data files
         self.workdir = "."       ## work directory name
         self.datadir = "."       ## data directory name
-        self.datafilename = '_lvs_data.csv'
-        self.logfilename  = '_lvs_log.txt'
+        self.datafilename   = '_lvs_data.csv'
+        self.logfilename    = '_lvs_log.txt'
+        self.configfilename = "lvs_config.py"
         self.datafile_header = ''
 
         #self.buff = ''
@@ -46,7 +45,9 @@ class LVS_device:
         ##  ----------------------------------
         ##    run init procedures
         self.fill_header()
-        self.read_config_file()
+        if self.read_config_file():
+            sys.exit(10)
+        self.print_params()
         ##  prepare dirs and files for data and logs
         self.prepare_dirs()
     
@@ -101,14 +102,16 @@ class LVS_device:
             fdata = open(self.datafilename, "w")
             fdata.write(self.datafile_header + '\n')
             fdata.close()
+            
+            text = f"New file {self.datafilename.split(self.sep)[-1]} created"
+            bot = telebot.TeleBot(config.token, parse_mode=None)
+            bot.send_message(config.channel, text)
 
         ## for log files
         self.logfilename  = path + self.sep + timestamp + self.logfilename 
         
         ##  print messages
-        text = f"New file {self.datafilename.split(self.sep)[-1]} created"
-        bot = telebot.TeleBot(config.token, parse_mode=None)
-        bot.send_message(config.channel, text)
+        
         if self.verbose:
             print(self.datafilename)
             print(self.logfilename)
@@ -122,17 +125,17 @@ class LVS_device:
         try:
             import lvs_config as config
         except:
-            print(f"\nread_config_file {__name__} Error!! No file to read config\n\n")
+            print(f"\n!!! read_config_file Error!! No file 'lvs_config' to read config\n\n")
             return -1
 
         self.portName = config.COM
         self.datadir  = config.datapath
 
-        try: 
-            self.MINID = int(config.MINID)
-        except:
-            pass
-        #self.MAXID = self.MINID
+        # try: 
+            # self.MINID = int(config.MINID)
+        # except:
+            # pass
+        # self.MAXID = self.MINID
         
         try:
             self.develop = config.develop
@@ -143,70 +146,29 @@ class LVS_device:
             print("--------------------------------------------")
             print("  Warning!   Run in emulation mode!    ")
             print("--------------------------------------------")
+            
+        self.write_config_file()
 
 
+    ## ----------------------------------------------------------------
+    ## save config to bak file
+    ## ----------------------------------------------------------------
+    def write_config_file(self):
+        filename = self.configfilename + ".bak"
+        f = open(filename, 'w')
+        f.write("# Attention! Write with python sintax!!!!\n")
 
+        f.write("#\n# Directory for DATA:\n")
+        f.write(f"datapath = '{self.datadir}'\n")
 
-    def read_path_file(self):
-        # check file
-        #print("read file")
-        try:
-            f = open("PATHFILES.CNF")
-        except:
-            print("Error!! No file PATHFILES.CNF\n\n")
-            return -1
+        f.write("#\n# LVS:   Serial Port:\n")
+        f.write(f"COM = '{self.portName}'\n")
         
-        params = [x.replace('\n','') for x in f.readlines() if x[0] != '#']
-        f.close()
-        #print(params)
-        
-        for param in params:
-            if "COM" in param:
-                self.portName = (param.split('=')[1])
-##            elif "BPS" in param:
-##                self.BPS = int(param.split('=')[1])
-##            elif "STOPBITS" in param:
-##                self.STOPBITS   = int(param.split('=')[1])
-##            elif "PARITY" in param:
-##                parity   = int(param.split('=')[1])
-##                if parity:
-##                    self.PARITY = serial.PARITY_EVEN
-##                else:
-##                    self.PARITY = serial.PARITY_NONE
-##            elif "TIMEX" in param:
-##                self.TIMEX   = int(param.split('=')[1])
-            elif "MINID" in param:
-                self.MINID = int(param.split('=')[1])
-                self.MAXID = self.MINID
-            else:
-                self.workdir = param
+        f.write("#\n# LVS:   Develop mode:\n")
+        f.write(f"develop = {self.develop}\n")
 
-
-    def write_path_file(self):
-        f = open("PATHFILES.CNF.bak", 'w')
-        f.write("#\n")
-        f.write("# Directorry for DATA:\n")
-        f.write("#\n")
-        f.write(self.pathfile+"\n")
-        f.write("#\n")
-        f.write("#\n")
-        f.write("# TCA08:   Serial Port:\n")
-        f.write("#\n")
-        f.write("COM="+self.portName+"\n")
-        f.write("#\n")
-        f.write("#\n")
-##        f.write("BPS=115200\n")
-##        f.write("#\n")
-##        f.write("STOPBIT=1\n")
-##        f.write("#\n")
-##        f.write("PARITY=0\n")
-##        f.write("#\n")
-##        f.write("TIMEX=5\n")
-##        f.write("#\n")
-        f.write("# TCA08:  Last Records:\n")
-        f.write("#\n")
-        f.write("MINID="+str(self.MINID)+"\n")
-        f.write("#\n")
+        #f.write("#\n#\n# LVS:  Last Records:\n#\n")
+        #f.write("MINID = " + str(self.MINID) + "\n")
         f.close()
 
 
@@ -328,7 +290,6 @@ class LVS_device:
             fdata = open(self.datafilename, 'a')
             fdata.write(dataline) 
             fdata.close()
-
 
 
     ##  ----------------------------------------------------------------
