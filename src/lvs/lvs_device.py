@@ -22,6 +22,9 @@ class LVS_device:
         self.datadir = "."       ## data directory name
         self.datafilename   = '_lvs_data.csv'
         self.logfilename    = '_lvs_log.txt'
+        self.datafilename_suff   = '_data.csv'
+        self.logfilename_suff    = '_log.txt'
+
         self.configfilename = "lvs_config.py"
         self.datafile_header = ''
 
@@ -82,8 +85,11 @@ class LVS_device:
         tt = datetime.now()
         timestamp = f"{tt.year}_{tt.month:02}"
 
-        if (timestamp in self.datafilename) and (timestamp in self.logfilename):
-            return True  ##  OK
+        if ((timestamp in self.datafilename) and 
+            (timestamp in self.logfilename) and
+            (self.device_name.split()[0].lower() in self.datafilename)
+            ):
+            return True  ##  OK -
         
         return False
 
@@ -97,26 +103,40 @@ class LVS_device:
         timestamp = f"{tt.year}_{tt.month:02}"
           
         path = self.datadir
+        devicename = self.device_name.split()[0].lower()
+        name_prefix = path + self.sep + timestamp + '_' + devicename
           
+        ## for log files
+        self.logfilename  = name_prefix + self.logfilename_suff 
+        
         ## for data files
-        self.datafilename = path + self.sep + timestamp + self.datafilename
+        #self.datafilename = path + self.sep + timestamp + self.datafilename_suff
+        self.datafilename = name_prefix + self.datafilename_suff
         if not os.path.lexists(self.datafilename):
             fdata = open(self.datafilename, "w")
             fdata.write(self.datafile_header + '\n')
             fdata.close()
             
             text = f"New file {self.datafilename.split(self.sep)[-1]} created"
-            bot = telebot.TeleBot(config.token, parse_mode=None)
-            bot.send_message(config.channel, text)
-
-        ## for log files
-        self.logfilename  = path + self.sep + timestamp + self.logfilename 
-        
-        ##  print messages
-        
+            self.write_bot(text)  ## write to bot
+       
+        ##  print messages      
         if self.verbose:
             print(self.datafilename)
             print(self.logfilename)
+            
+            
+    ## ----------------------------------------------------------------
+    ## write message to bot
+    ## ----------------------------------------------------------------
+    def write_bot(self, text):
+        try:
+            bot = telebot.TeleBot(config.token, parse_mode=None)
+            bot.send_message(config.channel, text)
+        except Exception as err:
+            ##  напечатать строку ошибки
+            text = f": ERROR in writing to bot: {err}"
+            self.write_log(text)  ## write to log file
 
 
     ## ----------------------------------------------------------------
@@ -132,6 +152,7 @@ class LVS_device:
 
         self.portName = config.COM
         self.datadir  = config.datapath
+        self.device_name = config.device_name
 
         # try: 
             # self.MINID = int(config.MINID)
@@ -168,6 +189,9 @@ class LVS_device:
         
         f.write("#\n# LVS:   Develop mode:\n")
         f.write(f"develop = {self.develop}\n")
+
+        f.write("#\n# LVS:   Develop mode:\n")
+        f.write(f"device_name = {self.device_name}\n")
 
         #f.write("#\n#\n# LVS:  Last Records:\n#\n")
         #f.write("MINID = " + str(self.MINID) + "\n")
@@ -206,6 +230,27 @@ class LVS_device:
 
 
     ##  ----------------------------------------------------------------
+    ## Write to log file with time
+    ##  ----------------------------------------------------------------
+    def write_log(self, text):
+        # get time
+        timenow = datetime.now()
+        timenow = str(timenow)
+        
+        # open log file
+        flog = open(self.logfilename, 'a') 
+        
+        # write to logfile
+        text = timenow + ": " + text 
+        flog.write(text + '\n')
+        if self.verbose:
+            print(text)
+        
+        # close log file
+        flog.close()
+
+
+    ##  ----------------------------------------------------------------
     ##  Open COM port
     ##  ----------------------------------------------------------------
     def connect(self):
@@ -213,20 +258,36 @@ class LVS_device:
         if self.develop:
             print("   simulation")
             return 2
+        print()
 
-        self.ser = serial.Serial(
-                port =     self.portName,
-                baudrate = self.BPS,       # 115200,
-                parity =   self.PARITY,    # serial.PARITY_NONE,
-                stopbits = self.STOPBITS,  # serial.STOPBITS_ONE,
-                bytesize = self.BYTESIZE,  # serial.EIGHTBITS
-                #timeout  = self.timeout
-                )
-        if (self.ser.isOpen()):
-            print(f"{self.portName} port open success\n")
-            return 0
-        print(f"\n\n Error! {self.portName} port open failed\n")
-        return -1
+        try:
+            self.ser = serial.Serial(
+                    port =     self.portName,
+                    baudrate = self.BPS,       # 115200,
+                    parity =   self.PARITY,    # serial.PARITY_NONE,
+                    stopbits = self.STOPBITS,  # serial.STOPBITS_ONE,
+                    bytesize = self.BYTESIZE,  # serial.EIGHTBITS
+                    #timeout  = self.timeout
+                    )
+        except Exception as err:
+            ##  напечатать строку ошибки
+            text = f"{self.device_name}: ERROR in {self.portName} connect(): {err}" 
+            self.write_log(text)  ## write to log file
+            self.write_bot(text)
+            return -1 ## Error in opening
+        
+        try:
+            if (self.ser.isOpen()):
+                text = f"{self.portName} port open success"
+                self.write_log(text)  ## write to log file
+        except Exception as err:
+            ##  напечатать строку ошибки
+            text = f"{self.device_name}: ERROR: {self.portName} port open failed: {err}" 
+            self.write_log(text)  ## write to log file
+            return -2  ## Error in checking
+        
+        return 0  ## OK          
+        
 
 
     ##  ----------------------------------------------------------------
@@ -244,51 +305,73 @@ class LVS_device:
     ##  Send request to COM port
     ##  ----------------------------------------------------------------
     def request(self, command):
-        flog = open(self.logfilename, 'a') 
 
         if 'BH_protocol::DA' in command:
             command = chr(2) + 'D'+'A' + chr(3)
-            flog.write(str(command))
-            print(command)
+            self.write_log(str(command))  ## write to log file
+            #print(command)
             self.ser.write(command.encode())
             time.sleep(5)
         else:
             time.sleep(30)
-
+       
+        try:
+            n = self.ser.in_waiting
+        except Exception as err:
+            ##  напечатать строку ошибки
+            text = f"ERROR in serial port reading: {err}"
+            self.write_log(text)  ## write to log file
+            return 1
+       
         dataline = ''
-        while self.ser.in_waiting:
-            line = self.ser.read()
+        while self.ser.in_waiting: ## читает кол-во байт в порте
+            line = self.ser.read() ## читает один байт из порта
             #print(line)
             if (line):
                 try:
-                    flog.write("{{"+str(line)+"}}\n")  #print("{{"+line+"}}")
+                    if line == b'\x00':
+                        text = f"||{str(line)}|| =>{str(line.decode())}<="  #print("{{"+line+"}}")
+                        self.write_log(text)  ## write to log file
                     line = str(line.decode())
-                    flog.write("{{"+str(line)+"}}\n")  #print("{{"+line+"}}")
+                    
+                    #self.write_log(("{{"+str(line)+"}}\n")  #print("{{"+line+"}}")
                     dataline = dataline + line
                 except Exception as err:
                     ##  напечатать строку ошибки
-                    text = f"ERROR: {err}" + '\n'
-                    print(text)
-                    flog.write(text)
-                    ##  напечатать ошибочный байт
-                    print("Cant decode byte:", ord(line), line)
-                    flog.write("Cant decode byte: " + str(ord(line)) + '\n')
-                    flog.write("{{"+str(line)+"}}-\n")
-                line=""
-            else:
-                text = "Error: no line in read in request :: is open failed\n"
-                print(text)
-                flog.write(text)
+                    text = f": ERROR in serial reading: {err}"
+                    self.write_log(text)  ## write to log file
+                    ##  напечатать ошибочный байт                  
+                    text = f"Cant decode byte: {str(ord(line))} from ||{str(line)}||-"
+                    self.write_log(text)  ## write to log file
+                line = ""
+            else:  ## невозможное условие
+                text = "Error: no line in read() in request() :: is open failed. Происходит что-то ужасное!\n"
+                self.write_log(text)  ## write to log file
+                self.write_bot(text)
+
                 break
         
         dataline = dataline.replace('\r', '').replace('\x00','')
         ## write to logfilename
-        flog.write("dataline: " + dataline.rstrip() + '\n')
-        flog.close()
+        #text = "dataline: " + dataline.rstrip()
+        #self.write_log(text)  ## write to log file
+        
+        ## get devicename
+        device_name = ''
+        if "lvs" in dataline.lower():
+            device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
+            if self.device_name != self.device_name:
+                self.device_name = device_name
+                text = f"Device name set to {self.device_name}"
+                self.write_bot()
+
+        ## check datafile name
+        if not self.filenames_are_ok():
+            self.create_filenames()
         
         ## write dataline to datafile
         print(dataline)
-        if len(dataline) > 4:
+        if len(dataline) > 4: ## Чтобы не писать b'\x00' и b'\xfe'
             fdata = open(self.datafilename, 'a')
             fdata.write(dataline) 
             fdata.close()

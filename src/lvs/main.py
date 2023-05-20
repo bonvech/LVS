@@ -3,11 +3,14 @@ import time
 
 
 device = LVS_device()
-device.connect()
+if device.connect():
+    exit()
 
 #for i in range(2400):
 i = 0
 while True:
+    if not device.filenames_are_ok():
+        device.create_filenames()
     print("request", i, end=':')
     device.request('Interval_all')
     i += 1
