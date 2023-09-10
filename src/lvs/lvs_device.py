@@ -190,7 +190,7 @@ class LVS_device:
         f.write("#\n# LVS:   Develop mode:\n")
         f.write(f"develop = {self.develop}\n")
 
-        f.write("#\n# LVS:   Develop mode:\n")
+        f.write("#\n# LVS:   Device name:\n")
         f.write(f"device_name = {self.device_name}\n")
 
         #f.write("#\n#\n# LVS:  Last Records:\n#\n")
@@ -273,13 +273,14 @@ class LVS_device:
             ##  напечатать строку ошибки
             text = f"{self.device_name}: ERROR in {self.portName} connect(): {err}" 
             self.write_log(text)  ## write to log file
-            self.write_bot(text)
+            #self.write_bot(text)
             return -1 ## Error in opening
         
         try:
             if (self.ser.isOpen()):
-                text = f"{self.portName} port open success"
+                text = f"{self.device_name}: {self.portName} port open success"
                 self.write_log(text)  ## write to log file
+                self.write_bot(text)
         except Exception as err:
             ##  напечатать строку ошибки
             text = f"{self.device_name}: ERROR: {self.portName} port open failed: {err}" 
