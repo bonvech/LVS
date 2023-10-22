@@ -150,6 +150,9 @@ def plot_figure_from_data(datum, path_to_figures, name='figure', title="LVS"):
 
     ## format graph
     fmt = get_time_format()
+    locator = dates.AutoDateLocator(minticks=20, maxticks=30)
+    labelrotation=0
+
     facecolor = 'white'
     plt.rcParams['xtick.labelsize'] = 10
     plt.rcParams['lines.linewidth'] = 3
@@ -173,16 +176,23 @@ def plot_figure_from_data(datum, path_to_figures, name='figure', title="LVS"):
     fig = plt.figure(figsize=(10, 5))
 
     ax_1 = fig.add_subplot(1, 1, 1)
-    color = 'purple' if name=='LVS' else 'b'
+    color = 'purple' if name=='LVS' else 'royalblue'
     ax_1.plot(x, y, color=color, label=title)
+    ax_1.fill_between(x, y, np.zeros_like(y), color=color)
 
-    ax_1.xaxis.set_major_formatter(fmt)
     ax_1.set_xlim(xlims)
     ax_1.set_ylim(bottom=0)
     ax_1.set_ylabel('Actual (m3)')
     #ax_1.legend()
     ax_1.set_title(title, loc='right')
-    ax_1.grid()
+    
+    # Повернем метки рисок на 55 градусов
+    ax_1.tick_params(axis='x', labelrotation=labelrotation)
+    
+    ax_1.xaxis.set_major_formatter(fmt)
+    ax_1.xaxis.set_minor_locator(locator)
+    ax_1.grid(which='major', alpha=0.9)
+    ax_1.grid(which='minor', alpha=0.5, linestyle='--')
 
     ## save to files
     plotname = path_to_figures + name + '_week'
