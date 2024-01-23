@@ -361,7 +361,7 @@ class LVS_device:
         device_name = ''
         if "lvs" in dataline.lower():
             device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
-            if self.device_name != self.device_name:
+            if self.device_name != device_name:
                 self.device_name = device_name
                 text = f"Device name set to {self.device_name}"
                 self.write_bot()
