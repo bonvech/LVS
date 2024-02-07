@@ -58,9 +58,10 @@ def get_data_from_previous_month(name):
     year, month = get_year_from_filename(name)
 
     ##  calculate previous year and month
-    newmonth = month - 1 if month >  2 else 12
-    newyear  = year  - 1 if month == 1 else year
-    #print(newyear, newmonth)
+    newmonth =   12    if month == 1 else month - 1 
+    newyear = year - 1 if month == 1 else year
+    if debug_mode:
+        print(newyear, newmonth)
 
     ##  replace year and month in filename
     if debug_mode:
@@ -71,7 +72,8 @@ def get_data_from_previous_month(name):
     nfile[1] = f'{newmonth:02d}'
     nparts[-1] = '_'.join(nfile)
     newname = sep.join(nparts)
-    #print(newname)
+    if debug_mode:
+        print(f"newname = {newname}")
 
     ## check data file
     if not os.path.exists(newname):
@@ -120,6 +122,7 @@ def prepare_data(datafilename, xcolumn='', ycolumn='Actual(m3)'):
     else:
         print("Data file has less than 2 week data")
         olddata = get_data_from_previous_month(datafilename)
+        print(datafilename, olddata)
         data = pd.concat([olddata, data], ignore_index=True)
         #print(f"joined data: {data.shape}\n", data.head())
         ## make column to plot on x axis
