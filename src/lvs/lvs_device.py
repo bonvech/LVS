@@ -363,8 +363,10 @@ class LVS_device:
             device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
             if self.device_name != device_name:
                 self.device_name = device_name
-                text = f"Device name set to {self.device_name}"
+                #text = f"Device name set to {self.device_name} in {self.portName}"
+                text = f"Device {self.device_name} on {self.portName}"
                 self.write_bot()
+        print(device_name)
 
         ## check datafile name
         if not self.filenames_are_ok():
@@ -372,7 +374,7 @@ class LVS_device:
         
         ## write dataline to datafile
         print(dataline)
-        if len(dataline) > 4: ## Чтобы не писать b'\x00' и b'\xfe'
+        if len(dataline) > 4: ## Чтобы не писать пустые строки с b'\x00' и b'\xfe'
             fdata = open(self.datafilename, 'a')
             fdata.write(dataline) 
             fdata.close()
