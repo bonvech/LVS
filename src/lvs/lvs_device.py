@@ -20,19 +20,19 @@ class LVS_device:
         ## for data files
         self.workdir = "."       ## work directory name
         self.datadir = "."       ## data directory name
-        self.datafilename   = '_pns_data.csv'
-        self.logfilename    = '_pns_log.txt'
+        self.datafilename   = '_lvs_data.csv'
+        self.logfilename    = '_lvs_log.txt'
         self.datafilename_suff   = '_data.csv'
         self.logfilename_suff    = '_log.txt'
 
-        self.configfilename = "pns_config.py"
+        self.configfilename = "lvs_config.py"
         self.datafile_header = ''
 
         #self.buff = ''
         #self.info = ''
         
         ##  COM port properties
-        self.portName = 'COM6'
+        self.portName = 'COM7'
         self.BPS      = 1200
         self.PARITY   = serial.PARITY_NONE
         self.STOPBITS = serial.STOPBITS_ONE
@@ -86,10 +86,10 @@ class LVS_device:
         timestamp = f"{tt.year}_{tt.month:02}"
 
         if ((timestamp in self.datafilename) and 
-            (timestamp in self.logfilename)  and
+            (timestamp in self.logfilename) and
             (self.device_name.split()[0].lower() in self.datafilename)
-           ):
-                return True  ##  OK
+            ):
+            return True  ##  OK -
         
         return False
 
@@ -110,7 +110,7 @@ class LVS_device:
         self.logfilename  = name_prefix + self.logfilename_suff 
         
         ## for data files
-        #self.datafilename = path + self.sep + timestamp + self.datafilename
+        #self.datafilename = path + self.sep + timestamp + self.datafilename_suff
         self.datafilename = name_prefix + self.datafilename_suff
         if not os.path.lexists(self.datafilename):
             fdata = open(self.datafilename, "w")
@@ -119,13 +119,13 @@ class LVS_device:
             
             text = f"New file {self.datafilename.split(self.sep)[-1]} created"
             self.write_bot(text)  ## write to bot
-
-        ##  print messages     
+       
+        ##  print messages      
         if self.verbose:
             print(self.datafilename)
             print(self.logfilename)
-
-
+            
+            
     ## ----------------------------------------------------------------
     ## write message to bot
     ## ----------------------------------------------------------------
@@ -359,13 +359,14 @@ class LVS_device:
         
         ## get devicename
         device_name = ''
-        if "pns" in dataline.lower():
-            device_name = list(filter(lambda x: 'pns' in x.lower(), dataline.split(";")))[0]
-            if self.device_name != self.device_name:
+        if "lvs" in dataline.lower():
+            device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
+            if self.device_name != device_name:
                 self.device_name = device_name
-                #text = f"Device name set to {self.device_name}"
+                #text = f"Device name set to {self.device_name} in {self.portName}"
                 text = f"Device {self.device_name} on {self.portName}"
                 self.write_bot(text)
+        print(device_name)
 
         ## check datafile name
         if not self.filenames_are_ok():
@@ -373,7 +374,7 @@ class LVS_device:
         
         ## write dataline to datafile
         print(dataline)
-        if len(dataline) > 4: ## Чтобы не писать b'\x00' и b'\xfe'
+        if len(dataline) > 4: ## Чтобы не писать пустые строки с b'\x00' и b'\xfe'
             fdata = open(self.datafilename, 'a')
             fdata.write(dataline) 
             fdata.close()
