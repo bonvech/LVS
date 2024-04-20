@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import serial
 import telebot
-import config
+import telebot_config
 
 
 class LVS_device:
@@ -131,8 +131,8 @@ class LVS_device:
     ## ----------------------------------------------------------------
     def write_bot(self, text):
         try:
-            bot = telebot.TeleBot(config.token, parse_mode=None)
-            bot.send_message(config.channel, text)
+            bot = telebot.TeleBot(telebot_config.token, parse_mode=None)
+            bot.send_message(telebot_config.channel, text)
         except Exception as err:
             ##  напечатать строку ошибки
             text = f": ERROR in writing to bot: {err}"
@@ -147,11 +147,11 @@ class LVS_device:
         try:
             import lvs_config as config
         except:
-            print(f"\n!!! read_config_file Error!! No file 'lvs_config' to read config\n\n")
+            print(f"\n!!! read_config_file Error!! No file 'lvs_config.py' to read config!!!\n\n")
             return -1
 
-        self.portName = config.COM
-        self.datadir  = config.datapath
+        self.portName    = config.COM
+        self.datadir     = config.datapath
         self.device_name = config.device_name
 
         # try: 
@@ -177,21 +177,27 @@ class LVS_device:
     ## save config to bak file
     ## ----------------------------------------------------------------
     def write_config_file(self):
-        filename = self.configfilename + ".bak"
+        ##  rename current config file
+        tt = datetime.now() ## get current datatime
+        timestamp = f"{tt.year}{tt.month:02}{tt.day:02}_{tt.hour:02}{tt.minute:02}"
+        os.system(f"copy {self.configfilename} {self.configfilename}_{timestamp}")
+                
+        ##  save configuration to new config.py
+        filename = self.configfilename  ## + ".bak"
         f = open(filename, 'w')
         f.write("# Attention! Write with python sintax!!!!\n")
 
         f.write("#\n# Directory for DATA:\n")
-        f.write(f"datapath = '{self.datadir}'\n")
+        f.write(f"datapath = \"{self.datadir}\"\n")
 
         f.write("#\n# LVS:   Serial Port:\n")
-        f.write(f"COM = '{self.portName}'\n")
+        f.write(f"COM = \"{self.portName}\"\n")
         
         f.write("#\n# LVS:   Develop mode:\n")
         f.write(f"develop = {self.develop}\n")
 
         f.write("#\n# LVS:   Device name:\n")
-        f.write(f"device_name = {self.device_name}\n")
+        f.write(f'device_name = "{self.device_name}"\n')
 
         #f.write("#\n#\n# LVS:  Last Records:\n#\n")
         #f.write("MINID = " + str(self.MINID) + "\n")
@@ -359,22 +365,26 @@ class LVS_device:
         
         ## get devicename
         device_name = ''
-        if "lvs" in dataline.lower():
-            device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
+        if ("lvs" in dataline.lower()) or ("pns" in dataline.lower()):
+            if "lvs" in dataline.lower():
+                device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
+            if "pns" in dataline.lower():
+                device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
             if self.device_name != device_name:
                 self.device_name = device_name
-                #text = f"Device name set to {self.device_name} in {self.portName}"
                 text = f"Device {self.device_name} on {self.portName}"
                 self.write_bot(text)
+                ##  save new device name to config file
+                self.write_config_file()
         print(device_name)
 
-        ## check datafile name
+        ## check datafile name with new device name and actual datetime
         if not self.filenames_are_ok():
             self.create_filenames()
         
         ## write dataline to datafile
         print(dataline)
-        if len(dataline) > 4: ## Чтобы не писать пустые строки с b'\x00' и b'\xfe'
+        if len(dataline) > 10: ## Чтобы не писать пустые строки с b'\x00' и b'\xfe'
             fdata = open(self.datafilename, 'a')
             fdata.write(dataline) 
             fdata.close()
