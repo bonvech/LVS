@@ -180,7 +180,7 @@ def plot_figure_from_data(datum, path_to_figures, name='figure', title="LVS"):
     fig = plt.figure(figsize=(10, 5))
 
     ax_1 = fig.add_subplot(1, 1, 1)
-    color = 'purple' if name=='LVS' else 'royalblue'
+    color = 'purple' if 'lvs' in name.lower() else 'royalblue'
     ax_1.plot(x, y, color=color, label=title)
     ax_1.fill_between(x, y, np.zeros_like(y), color=color)
 
