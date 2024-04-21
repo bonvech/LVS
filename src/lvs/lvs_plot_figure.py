@@ -123,7 +123,8 @@ def prepare_data(datafilename, xcolumn='', ycolumn='Actual(m3)'):
         print("Data file has less than 2 week data")
         olddata = get_data_from_previous_month(datafilename)
         print(datafilename, olddata)
-        data = pd.concat([olddata, data], ignore_index=True)
+        if olddata != -1:
+            data = pd.concat([olddata, data], ignore_index=True)
         #print(f"joined data: {data.shape}\n", data.head())
         ## make column to plot on x axis
         x = pd.to_datetime(data['Datetime'], format=fmt)
@@ -209,13 +210,13 @@ def plot_figure_from_data(datum, path_to_figures, name='figure', title="LVS"):
 ############################################################################
 def create_one_hour_grid(datum):
     hours = 24 * days_to_plot + 4
-    index = pd.date_range(datetime.now() - pd.to_timedelta(f"{hours - 2}:01:00"), periods=hours, freq="H")
+    index = pd.date_range(datetime.now() - pd.to_timedelta(f"{hours - 2}:01:00"), periods=hours, freq="h")
     data = pd.DataFrame({"plotx": index}, index=index)
     data['timetomerge'] = index
     data['timetomerge'] = data.apply(lambda x: str(x['timetomerge'])[:13], axis=1)
 
     datum = datum[['Datetime', 'Actual(m3)','plotx']]
-    datum['timetomerge'] = datum.apply(lambda x: str(pd.to_datetime(x['Datetime'], 
+    datum.loc[:, ['timetomerge']] = datum.apply(lambda x: str(pd.to_datetime(x['Datetime'], 
                                                  format='%d.%m.%Y %H:%M:%S'))[:13], axis=1)
     datum = datum.drop_duplicates(subset='timetomerge', keep='first')
 
@@ -230,7 +231,13 @@ def create_one_hour_grid(datum):
 ## --------------------------------------------------------------------------------------------------
 ## --------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
-    device_name = 'LVS'
+    ##  read device name from configfile
+    try:
+        import lvs_config as config
+        device_name = config.device_name
+    except:
+        device_name = 'LVS'
+        
     debug_mode = False
     sep = get_folder_separator()
     dirname = "." + sep + "data" + sep
@@ -240,7 +247,7 @@ if __name__ == "__main__":
     timestamp = str(datetime.now())[:7].replace('-', '_')    #'2022_11'  #'2022_06'
     if debug_mode:
         print("timestamp:", timestamp)
-    filename = timestamp + f'_{device_name.lower()}_data.csv'
+    filename = timestamp + f'_{device_name.split()[0].lower()}_data.csv'
     datafilename = dirname + filename
 
     ## check data file
@@ -262,4 +269,7 @@ if __name__ == "__main__":
         print(datum.head(2))
 
     # create figure
-    plot_figure_from_data(datum, path_to_figures, name=device_name, title=device_name)
+    plot_figure_from_data(datum, 
+                          path_to_figures, 
+                          name=device_name.split()[0].lower(), 
+                          title=device_name)
