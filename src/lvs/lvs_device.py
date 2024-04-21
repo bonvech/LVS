@@ -50,6 +50,7 @@ class LVS_device:
         self.fill_header()
         if self.read_config_file(): 
             sys.exit(10)  ## errors in read config file
+        
         if self.verbose:
             self.print_params()
         
@@ -170,7 +171,7 @@ class LVS_device:
             print("  Warning!   Run in emulation mode!    ")
             print("--------------------------------------------")
             
-        self.write_config_file()
+        #self.write_config_file()
 
 
     ## ----------------------------------------------------------------
@@ -369,7 +370,7 @@ class LVS_device:
             if "lvs" in dataline.lower():
                 device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
             if "pns" in dataline.lower():
-                device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
+                device_name = list(filter(lambda x: 'pns' in x.lower(), dataline.split(";")))[0]
             if self.device_name != device_name:
                 self.device_name = device_name
                 text = f"Device {self.device_name} on {self.portName}"
