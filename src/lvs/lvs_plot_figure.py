@@ -123,7 +123,7 @@ def prepare_data(datafilename, xcolumn='', ycolumn='Actual(m3)'):
         print("Data file has less than 2 week data")
         olddata = get_data_from_previous_month(datafilename)
         print(datafilename, olddata)
-        if olddata != -1:
+        if type(olddata):
             data = pd.concat([olddata, data], ignore_index=True)
         #print(f"joined data: {data.shape}\n", data.head())
         ## make column to plot on x axis
