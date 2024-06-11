@@ -63,7 +63,7 @@ class LVS_device:
     ##   Fill header for data file
     ##  ----------------------------------------------------------------
     def fill_header(self):
-        self.datafile_header = "DateTime;Type;D/N;Pump Run Time Total(h:m);Time of Measurement(h:m);Motorspeed(%);Actual(m3/h);Actual(Nm3/h);Actual(m3);Actual(Nm3);Filter Press.(hPa);Air Pressure(hPa);Outdoor Temp.('C);Filter Temp.('C);Chamber Temp.('C);Temperature orifice('C);Rel.Humidity(%);Magazine Position;Measuring Typ;Sample ID;Max. Planned Pos.;Event;Error"
+        self.datafile_header = "DateTime;Type;D/N;Pump Run Time Total(h:m);Time of Measurement(h:m);Motorspeed(%);Actual(m3/h);Actual(Nm3/h);Actual(m3);Actual(Nm3);Filter Press.(hPa);Air Pressure(hPa);Outdoor Temp.('C);Filter Temp.('C);Chamber Temp.('C);Temperature orifice('C);Rel.Humidity(%);Magazine Position;Measuring Typ;Sample ID;Max. Planned Pos.;Event;Error;xxx"
 
 
     ##  ----------------------------------------------------------------
