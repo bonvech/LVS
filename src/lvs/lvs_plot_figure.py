@@ -95,7 +95,8 @@ def get_data_from_previous_month(name):
 ############################################################################
 def read_datafile(datafilename):
     data = pd.read_csv(datafilename, sep=';')
-    data.columns = ['Datetime'] + data.columns[2:].values.tolist() + ['last']
+    #data.columns = ['Datetime'] + data.columns[2:].values.tolist() + ['last']
+    data.columns = ['Datetime'] + data.columns[1:].values.tolist()
     data['Actual(m3)'] = data['Actual(m3)'].str.replace(',', ".").astype(float)
     #print(data.columns)
     return data
