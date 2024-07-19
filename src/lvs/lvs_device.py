@@ -14,8 +14,7 @@ class LVS_device:
         self.verbose = True  ## flag True for print a lot of information
         
         self.device_name = None
-        self.MINID = 0
-        self.MAXID = 0
+        self.date_format = '%d.%m.%Y %H:%M:%S'  ## 19.07.2024 23:30:52
 
         ## for data files
         self.workdir = "."       ## work directory name
@@ -32,7 +31,7 @@ class LVS_device:
         #self.info = ''
         
         ##  COM port properties
-        self.portName = 'COM7'
+        self.portName = 'COM5'
         self.BPS      = 1200
         self.PARITY   = serial.PARITY_NONE
         self.STOPBITS = serial.STOPBITS_ONE
@@ -63,7 +62,7 @@ class LVS_device:
     ##   Fill header for data file
     ##  ----------------------------------------------------------------
     def fill_header(self):
-        self.datafile_header = "DateTime;Type;D/N;Pump Run Time Total(h:m);Time of Measurement(h:m);Motorspeed(%);Actual(m3/h);Actual(Nm3/h);Actual(m3);Actual(Nm3);Filter Press.(hPa);Air Pressure(hPa);Outdoor Temp.('C);Filter Temp.('C);Chamber Temp.('C);Temperature orifice('C);Rel.Humidity(%);Magazine Position;Measuring Typ;Sample ID;Max. Planned Pos.;Event;Error;xxx"
+        self.datafile_header = "timestamp;DateTime;Type;D/N;Pump Run Time Total(h:m);Time of Measurement(h:m);Motorspeed(%);Actual(m3/h);Actual(Nm3/h);Actual(m3);Actual(Nm3);Filter Press.(hPa);Air Pressure(hPa);Outdoor Temp.('C);Filter Temp.('C);Chamber Temp.('C);Temperature orifice('C);Rel.Humidity(%);Magazine Position;Measuring Typ;Sample ID;Max. Planned Pos.;Event;Error;xxx"
 
 
     ##  ----------------------------------------------------------------
@@ -87,7 +86,7 @@ class LVS_device:
         timestamp = f"{tt.year}_{tt.month:02}"
 
         if ((timestamp in self.datafilename) and 
-            (timestamp in self.logfilename) and
+            (timestamp in self.logfilename)  and
             (self.device_name.split()[0].lower() in self.datafilename)
             ):
             return True  ##  OK -
@@ -154,12 +153,6 @@ class LVS_device:
         self.portName    = config.COM
         self.datadir     = config.datapath
         self.device_name = config.device_name
-
-        # try: 
-            # self.MINID = int(config.MINID)
-        # except:
-            # pass
-        # self.MAXID = self.MINID
         
         try:
             self.develop = config.develop
@@ -199,9 +192,6 @@ class LVS_device:
 
         f.write("#\n# LVS:   Device name:\n")
         f.write(f'device_name = "{self.device_name}"\n')
-
-        #f.write("#\n#\n# LVS:  Last Records:\n#\n")
-        #f.write("MINID = " + str(self.MINID) + "\n")
         f.close()
 
 
@@ -216,7 +206,7 @@ class LVS_device:
         print("PARITY = ",   self.PARITY)
         print("BYTESIZE = ", self.BYTESIZE)
         print("TIMEX = ",    self.TIMEX)
-        print("MINID = ",    self.MINID)
+
 
 
 # Последовательный порт выполняется до тех пор, пока он не будет открыт, а затем использование команды open сообщит об ошибке
@@ -323,14 +313,16 @@ class LVS_device:
         else:
             time.sleep(30)
        
+        ##  check data in port
         try:
-            n = self.ser.in_waiting
+            n = self.ser.in_waiting ## читает кол-во байт в порте
         except Exception as err:
             ##  напечатать строку ошибки
             text = f"ERROR in serial port reading: {err}"
             self.write_log(text)  ## write to log file
             return 1
        
+        ##  read line from COMport
         dataline = ''
         while self.ser.in_waiting: ## читает кол-во байт в порте
             line = self.ser.read() ## читает один байт из порта
@@ -356,21 +348,31 @@ class LVS_device:
                 text = "Error: no line in read() in request() :: is open failed. Происходит что-то ужасное!\n"
                 self.write_log(text)  ## write to log file
                 self.write_bot(text)
-
                 break
+         
+        ##  Не писать пустые строки и строки с b'\x00' и b'\xfe'
+        if len(dataline) < 60:
+            print("")
+            return 2
         
         dataline = dataline.replace('\r', '').replace('\x00','')
+
+        ##  add timestamp 
+        timestamp = datetime.strptime(dataline.split(";")[0], self.date_format).timestamp()
+        dataline = f"{timestamp:.0f};{dataline}"
+        
         ## write to logfilename
         #text = "dataline: " + dataline.rstrip()
         #self.write_log(text)  ## write to log file
         
-        ## get devicename
+        ##  get devicename
         device_name = ''
+        device_type = 'lvs'
         if ("lvs" in dataline.lower()) or ("pns" in dataline.lower()):
-            if "lvs" in dataline.lower():
-                device_name = list(filter(lambda x: 'lvs' in x.lower(), dataline.split(";")))[0]
             if "pns" in dataline.lower():
-                device_name = list(filter(lambda x: 'pns' in x.lower(), dataline.split(";")))[0]
+                device_type = "pns"
+            device_name = list(filter(lambda x: device_type in x.lower(), dataline.split(";")))[0]
+            device_name += f" {dataline.split(";")[3]}"
             if self.device_name != device_name:
                 self.device_name = device_name
                 text = f"Device {self.device_name} on {self.portName}"
@@ -379,13 +381,13 @@ class LVS_device:
                 self.write_config_file()
         print(device_name)
 
-        ## check datafile name with new device name and actual datetime
+        ##  check datafile name with new device name and actual datetime
         if not self.filenames_are_ok():
             self.create_filenames()
         
-        ## write dataline to datafile
+        ##  write dataline to datafile
         print(dataline)
-        if len(dataline) > 10: ## Чтобы не писать пустые строки с b'\x00' и b'\xfe'
+        if len(dataline) > 60: 
             fdata = open(self.datafilename, 'a')
             fdata.write(dataline) 
             fdata.close()
