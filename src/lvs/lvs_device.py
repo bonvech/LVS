@@ -358,9 +358,16 @@ class LVS_device:
         dataline = dataline.replace('\r', '').replace('\x00','')
 
         ##  add timestamp 
-        timestamp = datetime.strptime(dataline.split(";")[0], self.date_format).timestamp()
-        dataline = f"{timestamp:.0f};{dataline}"
-        
+        #timestamp = datetime.strptime(dataline.split(";")[0], self.date_format).timestamp()
+        #dataline = f"{timestamp:.0f};{dataline}"
+        ##  !!!!
+        dataline = dataline.split("\n")
+        for i in range(len(dataline)):
+            if dataline[i]:
+                timestamp = datetime.strptime(dataline[i].split(";")[0], self.date_format).timestamp()
+                dataline[i] =  f"{timestamp:.0f};{dataline[i]}"
+        dataline = "\n".join(dataline)
+                
         ## write to logfilename
         #text = "dataline: " + dataline.rstrip()
         #self.write_log(text)  ## write to log file
